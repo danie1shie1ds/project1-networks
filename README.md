@@ -1,2 +1,5 @@
-# project1-networks
-This contains my code for Project 1 of Computer Networks
+Daniel Shields, 902132013
+High Level Design:
+Problems:
+Additional Libraries used:
+Acknowledgements:

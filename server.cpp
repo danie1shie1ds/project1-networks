@@ -11,10 +11,22 @@
 #include <sstream>
 
 int
-main()
+main(int argc, char **argv)
 {
+  // check to see if command line arguments are valid
+  // need a port number and directory for received files
+  if (argc != 3){
+    std::cerr<<"ERROR: invalid number of arguments\n";
+    return EXIT_FAILURE;
+  }
+  int port_num = std::stoi(argv[1]);
+  if (port_num < 1024 || port_num > 65535){
+    std::cerr<<"ERROR: invalid port number\n";
+    return EXIT_FAILURE;
+  }
   // create a socket using TCP IP
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
 
   // allow others to reuse the address
   int yes = 1;
@@ -26,7 +38,8 @@ main()
   // bind address to socket
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(40000); // the server will listen on port 4000
+  
+  addr.sin_port = htons(port_num); // the server will listen on port 4000
   addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // open socket on localhost IP address for server
   memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 
@@ -83,7 +96,8 @@ main()
     ss.str("");
   }
 
-  close(clientSockfd);
+close(clientSockfd);
 
-  return 0;
+return 0;
+
 }

@@ -11,68 +11,90 @@
 #include <sstream>
 
 int
-main()
+main(int argc, char **argv)
 {
-  // create a socket using TCP IP
-  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-  struct sockaddr_in serverAddr;
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_port = htons(40000);  // open a socket on port 4000 of the server
-  serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // use localhost as the IP address of the server to set up the socket
-  memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
-
-  // connect to the server
-  if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
-    perror("connect");
-    return 2;
+  // validate number of CL args
+  if (argc != 4){
+    std::cerr<<"ERROR: invalid number of arguments\n";
+    return EXIT_FAILURE;
   }
 
-  struct sockaddr_in clientAddr;
-  socklen_t clientAddrLen = sizeof(clientAddr);
-  if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
-    perror("getsockname");
-    return 3;
+  // check if port number is valid
+  int port_num = std::stoi(argv[2]);
+  if (port_num < 1024 || port_num > 65535){
+    std::cerr<<"ERROR: invalid port number\n";
+    return EXIT_FAILURE;
   }
 
-  char ipstr[INET_ADDRSTRLEN] = {'\0'};
-  inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
-  std::cout << "Set up a connection from: " << ipstr << ":" <<
-    ntohs(clientAddr.sin_port) << std::endl;
+  // check if hostname is valid
+  const char *hostname = argv[1];
+  struct in_addr addr;
+  if (inet_pton(AF_INET, hostname, &addr) != 1){
+    std::cerr<<"ERROR: invalid hostname or IP address\n";
+    return EXIT_FAILURE;
+  }
 
+    // create a socket using TCP IP
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-  // send/receive data (1 message) to/from the server
-  bool isEnd = false;
-  std::string input;
-  char buf[20] = {0};
-  std::stringstream ss;
+    struct sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port_num);  // open a socket on port 4000 of the server
+    serverAddr.sin_addr.s_addr = inet_addr(argv[1]); // use localhost as the IP address of the server to set up the socket
+    memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
 
-  while (!isEnd) {
-    memset(buf, '\0', sizeof(buf));
-
-    std::cout << "send: ";
-    std::cin >> input;
-    if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
-      perror("send");
-      return 4;
+    // connect to the server
+    if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
+      perror("connect");
+      return 2;
     }
 
-
-    if (recv(sockfd, buf, 20, 0) == -1) {
-      perror("recv");
-      return 5;
+    struct sockaddr_in clientAddr;
+    socklen_t clientAddrLen = sizeof(clientAddr);
+    if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
+      perror("getsockname");
+      return 3;
     }
-    ss << buf << std::endl;
-    std::cout << "echo: ";
-    std::cout << buf << std::endl;
 
-    if (ss.str() == "close\n")
-      break;
+    char ipstr[INET_ADDRSTRLEN] = {'\0'};
+    inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
+    std::cout << "Set up a connection from: " << ipstr << ":" <<
+      ntohs(clientAddr.sin_port) << std::endl;
 
-    ss.str("");
-  }
 
-  close(sockfd);
+    // send/receive data (1 message) to/from the server
+    bool isEnd = false;
+    std::string input;
+    char buf[20] = {0};
+    std::stringstream ss;
 
-  return 0;
+    while (!isEnd) {
+      memset(buf, '\0', sizeof(buf));
+
+      std::cout << "send: ";
+      std::cin >> input;
+      if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
+        perror("send");
+        return 4;
+      }
+
+
+      if (recv(sockfd, buf, 20, 0) == -1) {
+        perror("recv");
+        return 5;
+      }
+      ss << buf << std::endl;
+      std::cout << "echo: ";
+      std::cout << buf << std::endl;
+
+      if (ss.str() == "close\n")
+        break;
+
+      ss.str("");
+    }
+
+    close(sockfd);
+
+    return 0;
+
 }
