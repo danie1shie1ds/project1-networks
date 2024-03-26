@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <cstring>
 
 int
 main(int argc, char **argv)
@@ -27,12 +29,19 @@ main(int argc, char **argv)
   }
 
   // check if hostname is valid
-  const char *hostname = argv[1];
+  char *hostname = argv[1];
+  if(strcmp(hostname, "localhost") == 0){
+    std::strcpy(hostname, "127.0.0.1");
+  }
   struct in_addr addr;
   if (inet_pton(AF_INET, hostname, &addr) != 1){
+    std::cout<< hostname << "\n";
     std::cerr<<"ERROR: invalid hostname or IP address\n";
     return EXIT_FAILURE;
   }
+
+  std::ifstream myfile;
+  myfile.open(argv[3]);
 
     // create a socket using TCP IP
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -62,37 +71,27 @@ main(int argc, char **argv)
       ntohs(clientAddr.sin_port) << std::endl;
 
 
-    // send/receive data (1 message) to/from the server
-    bool isEnd = false;
+    // send/receive data 
     std::string input;
-    char buf[20] = {0};
+    char buf[1024] = {0};
     std::stringstream ss;
 
-    while (!isEnd) {
-      memset(buf, '\0', sizeof(buf));
+    if (!(myfile.is_open())){
+        std::cerr<< "ERROR: couldn't open file\n";
+        return EXIT_FAILURE;
+      }
 
-      std::cout << "send: ";
-      std::cin >> input;
-      if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
+    while (!myfile.eof()) {
+      myfile.read(buf, sizeof(buf) -1);
+      buf[myfile.gcount()] = '\0';
+      // std::cout << "send: ";
+      
+
+      if (send(sockfd, buf, myfile.gcount(), 0) == -1) {
         perror("send");
         return 4;
       }
-
-
-      if (recv(sockfd, buf, 20, 0) == -1) {
-        perror("recv");
-        return 5;
-      }
-      ss << buf << std::endl;
-      std::cout << "echo: ";
-      std::cout << buf << std::endl;
-
-      if (ss.str() == "close\n")
-        break;
-
-      ss.str("");
     }
-
     close(sockfd);
 
     return 0;

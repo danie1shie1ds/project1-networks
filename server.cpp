@@ -9,12 +9,16 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
 
 int
 main(int argc, char **argv)
 {
   // check to see if command line arguments are valid
   // need a port number and directory for received files
+
+  int num_connections = 0;
+
   if (argc != 3){
     std::cerr<<"ERROR: invalid number of arguments\n";
     return EXIT_FAILURE;
@@ -24,6 +28,8 @@ main(int argc, char **argv)
     std::cerr<<"ERROR: invalid port number\n";
     return EXIT_FAILURE;
   }
+
+  char* path = argv[2];
   // create a socket using TCP IP
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -68,6 +74,26 @@ main(int argc, char **argv)
   inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
   std::cout << "Accept a connection from: " << ipstr << ":" <<
     ntohs(clientAddr.sin_port) << std::endl;
+
+
+
+  char filepath[100];
+  snprintf(filepath, sizeof(filepath), "%s/1.file", path);
+  std::ofstream myfile;
+  myfile.open(filepath);
+  
+  if (!(myfile.is_open())){
+    std::cerr<< "ERROR: couldn't open file\n";
+    return EXIT_FAILURE;
+  }
+
+  size_t n;
+  char buffer[1024] = {0};
+  while((n = recv(clientSockfd, buffer, sizeof(buffer), 0)) > 0){
+    myfile.write(buffer, n);
+  }
+    
+
 
   // receive/send data (1 message) from/to the client
   bool isEnd = false;
