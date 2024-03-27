@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <iostream>
 #include <sstream>
@@ -43,57 +44,84 @@ main(int argc, char **argv)
   std::ifstream myfile;
   myfile.open(argv[3]);
 
-    // create a socket using TCP IP
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  // create a socket using TCP IP
+  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port_num);  // open a socket on port 4000 of the server
-    serverAddr.sin_addr.s_addr = inet_addr(argv[1]); // use localhost as the IP address of the server to set up the socket
-    memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
+  // // If the socket is waiting more than 10 seconds to connect
+  // size_t timeout_in_seconds = 10;
+  // struct timeval tv;
+  // tv.tv_sec = timeout_in_seconds;
+  // tv.tv_usec = 0;
+  // setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof tv);
 
-    // connect to the server
-    if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
-      perror("connect");
-      return 2;
+  struct sockaddr_in serverAddr;
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons(port_num);  // open a socket on port 4000 of the server
+  serverAddr.sin_addr.s_addr = inet_addr(argv[1]); // use localhost as the IP address of the server to set up the socket
+  memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
+
+  // connect to the server
+  fd_set writefds;
+  FD_ZERO(&writefds);
+  FD_SET(sockfd, &writefds);
+
+  struct timeval tv;
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  int rv = select(sockfd+1, NULL, &writefds, NULL, &tv);
+
+  // timeout occurs
+  if (rv == 0) {
+    std::cerr << "ERROR: timeout occurred\n";
+    return -1;
+  } else if (rv == -1) {
+    perror("select");
+  }
+
+  // connect to the server
+  if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
+    fprintf(stderr, "ERROR: Couldn't connect to server");
+    perror("connect");
+    return 2;
+  }
+
+  struct sockaddr_in clientAddr;
+  socklen_t clientAddrLen = sizeof(clientAddr);
+  if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
+    perror("getsockname");
+    return 3;
+  }
+  
+
+  char ipstr[INET_ADDRSTRLEN] = {'\0'};
+  inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
+  std::cout << "Set up a connection from: " << ipstr << ":" <<
+    ntohs(clientAddr.sin_port) << std::endl;
+
+  // sleep(15);
+  // send/receive data 
+  std::string input;
+  char buf[1024] = {0};
+  std::stringstream ss;
+
+  if (!(myfile.is_open())){
+      std::cerr<< "ERROR: couldn't open file\n";
+      return EXIT_FAILURE;
     }
 
-    struct sockaddr_in clientAddr;
-    socklen_t clientAddrLen = sizeof(clientAddr);
-    if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
-      perror("getsockname");
-      return 3;
+  while (!myfile.eof()) {
+    myfile.read(buf, sizeof(buf) -1);
+    buf[myfile.gcount()] = '\0';
+    // std::cout << "send: ";
+    
+
+    if (send(sockfd, buf, myfile.gcount(), 0) == -1) {
+      perror("send");
+      return 4;
     }
+  }
+  close(sockfd);
 
-    char ipstr[INET_ADDRSTRLEN] = {'\0'};
-    inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
-    std::cout << "Set up a connection from: " << ipstr << ":" <<
-      ntohs(clientAddr.sin_port) << std::endl;
-
-
-    // send/receive data 
-    std::string input;
-    char buf[1024] = {0};
-    std::stringstream ss;
-
-    if (!(myfile.is_open())){
-        std::cerr<< "ERROR: couldn't open file\n";
-        return EXIT_FAILURE;
-      }
-
-    while (!myfile.eof()) {
-      myfile.read(buf, sizeof(buf) -1);
-      buf[myfile.gcount()] = '\0';
-      // std::cout << "send: ";
-      
-
-      if (send(sockfd, buf, myfile.gcount(), 0) == -1) {
-        perror("send");
-        return 4;
-      }
-    }
-    close(sockfd);
-
-    return 0;
+  return 0;
 
 }
